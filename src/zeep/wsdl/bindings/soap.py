@@ -82,14 +82,10 @@ class SoapBinding(Binding):
                 options = client.service._binding_options
 
             if operation_obj.abstract.wsa_action:
-                envelope, http_headers = wsa.WsAddressingPlugin().egress(
-                    envelope, http_headers, operation_obj, options
-                )
+                envelope, http_headers = wsa.WsAddressingPlugin().egress(envelope, http_headers, operation_obj, options)
 
             # Apply plugins
-            envelope, http_headers = plugins.apply_egress(
-                client, envelope, http_headers, operation_obj, options
-            )
+            envelope, http_headers = plugins.apply_egress(client, envelope, http_headers, operation_obj, options)
 
             # Apply WSSE
             if client.wsse:
@@ -120,9 +116,7 @@ class SoapBinding(Binding):
         :type kwargs: dict
 
         """
-        envelope, http_headers = self._create(
-            operation, args, kwargs, client=client, options=options
-        )
+        envelope, http_headers = self._create(operation, args, kwargs, client=client, options=options)
 
         response = client.transport.post_xml(options["address"], envelope, http_headers)
 
@@ -149,13 +143,9 @@ class SoapBinding(Binding):
         :type kwargs: dict
 
         """
-        envelope, http_headers = self._create(
-            operation, args, kwargs, client=client, options=options
-        )
+        envelope, http_headers = self._create(operation, args, kwargs, client=client, options=options)
 
-        response = await client.transport.post_xml(
-            options["address"], envelope, http_headers
-        )
+        response = await client.transport.post_xml(options["address"], envelope, http_headers)
 
         if client.settings.raw_response:
             return response
@@ -179,8 +169,7 @@ class SoapBinding(Binding):
 
         elif response.status_code != 200 and not response.content:
             raise TransportError(
-                u"Server returned HTTP status %d (no content available)"
-                % response.status_code,
+                "Server returned HTTP status %d (no content available)" % response.status_code,
                 status_code=response.status_code,
             )
 
@@ -191,9 +180,7 @@ class SoapBinding(Binding):
         # If the reply is a multipart/related then we need to retrieve all the
         # parts
         if media_type == "multipart/related":
-            decoder = MultipartDecoder(
-                response.content, content_type, response.encoding or "utf-8"
-            )
+            decoder = MultipartDecoder(response.content, content_type, response.encoding or "utf-8")
             content = decoder.parts[0].content
             if len(decoder.parts) > 1:
                 message_pack = MessagePack(parts=decoder.parts[1:])
@@ -204,8 +191,7 @@ class SoapBinding(Binding):
             doc = parse_xml(content, self.transport, settings=client.settings)
         except XMLSyntaxError as exc:
             raise TransportError(
-                "Server returned response (%s) with invalid XML: %s.\nContent: %r"
-                % (response.status_code, exc, response.content),
+                "Server returned response (%s) with invalid XML: %s.\nContent: %r" % (response.status_code, exc, response.content),
                 status_code=response.status_code,
                 content=response.content,
             )
@@ -215,12 +201,11 @@ class SoapBinding(Binding):
             if process_xop(doc, message_pack):
                 message_pack = None
 
-        if client.wsse:
+        # do not validate signature on 500 response. EDS does not sign those messages
+        if not response.status_code in (500,) and client.wsse:
             client.wsse.verify(doc)
 
-        doc, http_headers = plugins.apply_ingress(
-            client, doc, response.headers, operation
-        )
+        doc, http_headers = plugins.apply_ingress(client, doc, response.headers, operation)
 
         # If the response code is not 200 or if there is a Fault node available
         # then assume that an error occured.
@@ -289,10 +274,7 @@ class SoapBinding(Binding):
         ]
 
         if transport not in supported_transports:
-            raise NotImplementedError(
-                "The binding transport %s is not supported (only soap/http)"
-                % (transport)
-            )
+            raise NotImplementedError("The binding transport %s is not supported (only soap/http)" % (transport))
         default_style = soap_node.get("style", "document")
 
         obj = cls(definitions.wsdl, name, port_name, transport, default_style)
@@ -361,30 +343,18 @@ class Soap12Binding(SoapBinding):
             if child is not None:
                 return child.text
 
-        message = fault_node.findtext(
-            "soap-env:Reason/soap-env:Text", namespaces=self.nsmap
-        )
-        code = fault_node.findtext(
-            "soap-env:Code/soap-env:Value", namespaces=self.nsmap
-        )
+        message = fault_node.findtext("soap-env:Reason/soap-env:Text", namespaces=self.nsmap)
+        code = fault_node.findtext("soap-env:Code/soap-env:Value", namespaces=self.nsmap)
 
         # Extract the fault subcodes. These can be nested, as in subcodes can
         # also contain other subcodes.
         subcodes = []
-        subcode_element = fault_node.find(
-            "soap-env:Code/soap-env:Subcode", namespaces=self.nsmap
-        )
+        subcode_element = fault_node.find("soap-env:Code/soap-env:Subcode", namespaces=self.nsmap)
         while subcode_element is not None:
-            subcode_value_element = subcode_element.find(
-                "soap-env:Value", namespaces=self.nsmap
-            )
-            subcode_qname = as_qname(
-                subcode_value_element.text, subcode_value_element.nsmap, None
-            )
+            subcode_value_element = subcode_element.find("soap-env:Value", namespaces=self.nsmap)
+            subcode_qname = as_qname(subcode_value_element.text, subcode_value_element.nsmap, None)
             subcodes.append(subcode_qname)
-            subcode_element = subcode_element.find(
-                "soap-env:Subcode", namespaces=self.nsmap
-            )
+            subcode_element = subcode_element.find("soap-env:Subcode", namespaces=self.nsmap)
 
         # TODO: We should use the fault message as defined in the wsdl.
         detail_node = fault_node.find("soap-env:Detail", namespaces=self.nsmap)
@@ -419,10 +389,7 @@ class SoapOperation(Operation):
         envelope_qname = etree.QName(self.nsmap["soap-env"], "Envelope")
         if envelope.tag != envelope_qname:
             raise XMLSyntaxError(
-                (
-                    "The XML returned by the server does not contain a valid "
-                    + "{%s}Envelope root element. The root element found is %s "
-                )
+                ("The XML returned by the server does not contain a valid " + "{%s}Envelope root element. The root element found is %s ")
                 % (envelope_qname.namespace, envelope.tag)
             )
 
