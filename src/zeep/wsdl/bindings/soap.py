@@ -215,7 +215,8 @@ class SoapBinding(Binding):
             if process_xop(doc, message_pack):
                 message_pack = None
 
-        if client.wsse:
+        # do not validate signature on 500 response.
+        if not response.status_code in (500,) and client.wsse:
             client.wsse.verify(doc)
 
         doc, http_headers = plugins.apply_ingress(
